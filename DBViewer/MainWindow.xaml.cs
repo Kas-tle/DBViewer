@@ -168,13 +168,9 @@ namespace DBViewer
                             chunkItem.Data = key;
                             return;
                         case KeyType.SubChunk:
-                            if (subChunkIndex >= 0 && subChunkIndex < 32)
-                            {
-                                var subChunkItem = chunkItem.Children[0];
-                                subChunkItem.Children.Add(new KeyItem { Name = "SubChunk #" + subChunkIndex, Data = key });
-                                return;
-                            }
-                            break;
+                            var subChunkItem = chunkItem.Children[0];
+                            subChunkItem.Children.Add(new KeyItem { Name = "SubChunk #" + subChunkIndex, Data = key });
+                            return;
                         default:
                             chunkItem.Children.Add(new KeyItem { Name = keyType.ToString(), Data = key });
                             return;
@@ -278,19 +274,29 @@ namespace DBViewer
                     valueTextBox.Text = asString(currentValue);
                     break;
                 case 2:
-                    try
+                    StringBuilder combinedTags = new StringBuilder();
+                    using (var stream = new MemoryStream(currentValue))
                     {
-                        using (var stream = new MemoryStream(currentValue))
+                        while (stream.Position < stream.Length)
                         {
-                            fNbt.NbtReader reader = new fNbt.NbtReader(stream, false);
-                            fNbt.NbtTag tag = reader.ReadAsTag();
-                            valueTextBox.Text = tag.ToString("    ");
+                            try
+                            {
+                                fNbt.NbtReader reader = new fNbt.NbtReader(stream, false);
+                                fNbt.NbtTag tag = reader.ReadAsTag();
+                                combinedTags.AppendLine(tag.ToString("    "));
+
+                                // Advance stream position to skip the tag we just read.
+                                stream.Position += reader.TagLength;
+                            }
+                            catch (Exception e)
+                            {
+                                combinedTags.AppendLine($"Error reading NBT data: {e.Message}");
+                                goto exitWhile;
+                            }
                         }
                     }
-                    catch (Exception e)
-                    {
-                        valueTextBox.Text = e.ToString();
-                    }
+                    exitWhile:
+                    valueTextBox.Text = combinedTags.ToString();
                     break;
                 default:
                     keyTextBox.Clear();
